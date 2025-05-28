@@ -1,0 +1,6 @@
+git clone https://github.com/D-I-V-Y-A-S/code-share-migration
+open the repository in vscode
+Install the Terminal Commands
+In users.json use appropriate email-id 
+Fill-in values in .env
+run "python migration.py"
