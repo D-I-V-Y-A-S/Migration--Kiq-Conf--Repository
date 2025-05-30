@@ -5,6 +5,7 @@ import chardet
 from bs4 import BeautifulSoup
 from atlassian import Confluence
 import requests
+from bs4 import NavigableString
 from dotenv import load_dotenv
 import os
 import requests
@@ -286,32 +287,6 @@ def highlight_externalid(html_content):
 
 html_content = highlight_externalid(html_content)
 
-# def add_dynamic_step_anchors(html_content):
-#     # Match headers that start with "Step X:" where X is any number
-#     # pattern = re.compile(r'(<h[1-6][^>]*>)(Step\s*(\d+):)(.*?)</h[1-6]>', re.IGNORECASE | re.DOTALL)
-#     pattern = re.compile(r'href="#([a-zA-Z][0-9a-zA-Z_-]*)"', re.IGNORECASE)
-#     def replacer(match):
-#         header_tag = match.group(1)     
-#         step_text = match.group(2)      
-#         step_number = match.group(3)     
-#         rest_of_header = match.group(4).strip()  
- 
-
-#         # Generate the anchor macro dynamically
-#         anchor_macro = f'''
-# <ac:structured-macro ac:name="anchor">
-#   <ac:parameter ac:name="">s{step_number}</ac:parameter>
-# </ac:structured-macro>'''.strip()
-
-#         # Create the new header content with <b> tags
-#         bolded_header = f"<b>{step_text} {rest_of_header}</b>"
-
-#         # Build the final replacement
-#         return f"{anchor_macro}\n{header_tag}{bolded_header}</h3>"
-
-#     updated_html = pattern.sub(replacer, html_content)
-
-#     return updated_html
 def add_dynamic_step_anchors(html_content):
     # Match headers that start with "Step X:" where X is any number
     pattern = re.compile(
@@ -343,7 +318,6 @@ def add_dynamic_step_anchors(html_content):
     updated_html = pattern.sub(replacer, html_content)
 
     return updated_html
-
 
 def download_images_from_html_and_update_content(html_content):
     soup = BeautifulSoup(html_content, "html.parser")
@@ -381,6 +355,61 @@ def download_images_from_html_and_update_content(html_content):
 html_content = download_images_from_html_and_update_content(html_content)
 html_content = add_dynamic_step_anchors(html_content)
 
+soup = BeautifulSoup(html_content, 'html.parser')
+
+external_links = soup.find_all('a', class_='externallink')
+data_itemid = set()
+
+for link in external_links:
+    # print("Anchor text:", link.text.strip())
+    itemid = link.get('data-itemid')
+    if itemid:
+        data_itemid.add(itemid)
+        # print(itemid)
+itemid_to_conf={}
+for itemid in data_itemid:
+    pagefetch_url=f"https://rest.opt.knoiq.co/api/v2/admin/documents/{itemid}"
+    response=requests.get(pagefetch_url,headers=headers_1)
+    if response.status_code == 200:
+        try:
+            data = response.json()
+            fields = data.get("fields", []) 
+            title_1 = get_document_title(fields)
+            # print("page title",title_1)
+            results = confluence.get_page_by_title(space_key, title_1)
+            if results:
+                itemid_to_conf[itemid] = title_1
+                print(itemid_to_conf)
+            # print(results)
+        except ValueError:
+            print("Failed to parse JSON.")
+    else:
+        print("page not exists",itemid)
+
+for link in external_links:
+    itemid = link.get('data-itemid')
+    anchor_text = link.text.strip()
+    if itemid in itemid_to_conf:
+        conf_title = itemid_to_conf[itemid]
+
+        ac_link = soup.new_tag("ac:link")
+        ri_page = soup.new_tag("ri:page")
+        ri_page['ri:content-title'] = conf_title
+        # plain_body = soup.new_tag("ac:plain-text-link-body")
+        # # plain_body.string = anchor_text
+        # plain_body.append(NavigableString(f"<![CDATA[{anchor_text}]]>"))
+        link_body = soup.new_tag("ac:link-body")
+        span = soup.new_tag("span")
+        span.string = anchor_text
+        link_body.append(span)
+        ac_link.append(ri_page)
+        # ac_link.append(plain_body)
+        ac_link.append(link_body)  
+        link.replace_with(ac_link)
+
+# Final HTML
+html_content = str(soup)    
+         
 # Step 6: Create page
 try:
     result = confluence.create_page(
