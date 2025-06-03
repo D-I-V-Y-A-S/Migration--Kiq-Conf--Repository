@@ -7,10 +7,7 @@ from atlassian import Confluence
 import requests
 from bs4 import NavigableString
 from dotenv import load_dotenv
-import os
-import requests
 import binascii
-import os
 from Crypto.Hash import SHA256, HMAC
 
 # file_path = "output.json"
@@ -125,7 +122,6 @@ url = os.getenv("CONFLUENCE_URL")
 api_token = os.getenv("CONFLUENCE_API_TOKEN")
 
 # Authenticate with Confluence
-# print(url,"confemail:",confluence_email,"password:",api_token)
 confluence = Confluence(
     url=url,
     username=confluence_email,
@@ -195,9 +191,6 @@ def generate_image_macro_img(filename):
 </ac:image>
 '''.strip()
 
-from bs4 import BeautifulSoup
-import re
-
 def find_fragment_in_soup(soup, html_fragment):
     fragment_soup = BeautifulSoup(html_fragment, 'html.parser')
     fragment_elements = list(fragment_soup.contents)
@@ -212,29 +205,7 @@ def find_fragment_in_soup(soup, html_fragment):
 
     return None
 
-# def find_all_fragments_in_soup(soup, html_fragment):
-#     fragment_soup = BeautifulSoup(html_fragment, 'html.parser')
-#     fragment_elements = list(fragment_soup.contents)
-#     if not fragment_elements:
-#         return []
-
-#     matched_elements = []
-#     for fragment_el in fragment_elements:
-#         candidates = soup.find_all(fragment_el.name)
-#         for candidate in candidates:
-#             if str(candidate).strip() == str(fragment_el).strip():
-#                 matched_elements.append(candidate)
-#     return matched_elements
-
 def generate_confluence_storage_format(html_content, ddata):
-    """
-    Insert <ac:structured-macro ac:name="anchor"><ac:parameter>{bookmark}</ac:parameter></ac:structured-macro>
-    before the first matching text element in the HTML, for bookmarks found in both ddata and the HTML links.
-
-    :param html_content: Original HTML content string.
-    :param ddata: Dictionary containing items with 'fields' that may include 'Bookmark' values.
-    :return: Modified HTML string suitable for Confluence storage format.
-    """
     # soup = BeautifulSoup(html_content, 'html.parser')
     soup = BeautifulSoup(html_content, 'html.parser')
 
@@ -345,6 +316,7 @@ def get_tooltip_panel_content(external_id):
             item_id = img_tag["itemid"]
             filepath = fetch_and_save_image(item_id)
             if filepath:
+                print("tooltip",filepath)
                 return generate_image_macro(os.path.basename(filepath))
         return None
 
@@ -357,6 +329,7 @@ def get_tooltip_panel_content(external_id):
             if item_id:
                 filepath = fetch_and_save_image(item_id)
                 if filepath:
+                    print("filepath1",filepath)
                     return generate_image_macro(os.path.basename(filepath))
 
         # If no valid image found, return the raw content
@@ -405,38 +378,6 @@ def highlight_externalid(html_content):
 
 html_content = highlight_externalid(html_content)
 
-# def add_dynamic_step_anchors(html_content):
-#     # Match headers that start with "Step X:" where X is any number
-#     pattern = re.compile(
-#         r'(<h[1-6][^>]*>)(Step\s*(\d+):)(.*?)</h[1-6]>',
-#         re.IGNORECASE | re.DOTALL
-#     )
-    
-#     def replacer(match):
-#         header_tag = match.group(1)     
-#         step_text = match.group(2)      
-#         step_number = match.group(3)    
-#         rest_of_header = match.group(4).strip()  
-
-#         # Generate the anchor macro dynamically
-#         anchor_macro = f'''
-# <ac:structured-macro ac:name="anchor">
-#   <ac:parameter ac:name="">s{step_number}</ac:parameter>
-# </ac:structured-macro>'''.strip()
-
-#         # Create the new header content with <b> tags
-#         bolded_header = f"<b>{step_text} {rest_of_header}</b>"
-
-#         # Build the final replacement
-#         # Close header tag with </h3>, but use the same level as opening tag
-#         closing_tag = '</' + header_tag[1] + '>'
-
-#         return f"{anchor_macro}\n{header_tag}{bolded_header}{closing_tag}"
-
-#     updated_html = pattern.sub(replacer, html_content)
-
-#     return updated_html
-
 def download_images_from_html_and_update_content(html_content):
     soup = BeautifulSoup(html_content, "html.parser")
     img_tags = soup.find_all("img")
@@ -454,6 +395,7 @@ def download_images_from_html_and_update_content(html_content):
         if response.status_code == 200:
             os.makedirs(images_folder, exist_ok=True)
             filepath = os.path.join(images_folder, f"{item_id}.png")
+            print("fullimage",filepath)
             with open(filepath, "wb") as f:
                 f.write(response.content)
             print(f"Image saved to {filepath}")
@@ -475,56 +417,6 @@ soup = BeautifulSoup(html_content, 'html.parser')
 
 external_links = soup.find_all('a', class_='externallink')
 data_itemid = set()
-
-# def add_dynamic_step_anchors_with_targets(html_content, json_data):
-#     soup = BeautifulSoup(html_content, 'html.parser')
-#     links = soup.find_all('a', href=True)
-#     pattern = re.compile(r'^#\w+$')
-#     created_sections = set()
-
-#     for link in links:
-#         href = link['href'].strip()
-#         if pattern.match(href):
-#             bookmark_value = href[1:]  # remove the "#"
-#             if bookmark_value in created_sections:
-#                 continue
-#             created_sections.add(bookmark_value)
-
-#             # Find matching content in JSON
-#             children = json_data.get('children', [])
-#             for item in children:
-#                 for field in item.get('fields', []):
-#                     if field.get('name') == 'Bookmark' and field.get('value') == bookmark_value:
-#                         # Insert anchor macro at the top of the body or in a section
-#                         anchor_macro = soup.new_tag("ac:structured-macro", **{"ac:name": "anchor"})
-#                         parameter = soup.new_tag("ac:parameter", **{"ac:name": ""})
-#                         parameter.string = bookmark_value
-#                         anchor_macro.append(parameter)
-#                         # Insert target content
-#                         text_values = []
-#                         if item.get('children'):
-#                             for child in item['children']:
-#                                 for f in child.get('fields', []):
-#                                     val = f.get('value')
-#                                     text_values.append(val)
-#                                     p_tag = soup.new_tag("p")
-#                                     p_tag.string = val
-#                                     anchor_macro.append(p_tag)
-
-#                         inserted = False
-#                         for val in text_values:
-#                             matching_elements = soup.find_all(string=val)
-#                             for element in matching_elements:
-#                                 element_parent = element.parent
-#                                 element_parent.insert_before(anchor_macro)
-#                                 inserted = True
-
-#                         if inserted:
-#                             break
-
-#     return str(soup)
-
-# html_content=add_dynamic_step_anchors_with_targets(html_content,data)
 
 for link in external_links:
     # print("Anchor text:", link.text.strip())
@@ -575,7 +467,9 @@ for link in external_links:
 
 # Final HTML
 html_content = str(soup)    
-    
+# for file in uploaded:
+#     image_tag = f'<ac:image><ri:attachment ri:filename="{file}" /></ac:image><br/>'
+#     html_content += image_tag   
 # print(html_content)
 # Step 6: Create page
 try:
@@ -606,9 +500,6 @@ for file in os.listdir(images_folder):
         uploaded.append(file)
     except Exception as e:
         print(f"Failed to upload {file}: {e}")
-for file in uploaded:
-    image_tag = f'<ac:image><ri:attachment ri:filename="{file}" /></ac:image><br/>'
-    html_content += image_tag
     
 confluence.update_page(
     page_id=page_id,
@@ -644,7 +535,7 @@ new_row = f'''
 if "</tbody>" in current_body:
     updated_body = current_body.replace("</tbody>", new_row + "</tbody>")
 else:
-    print("❌ Could not locate </tbody> in tracking page.")
+    print("Could not locate </tbody> in tracking page.")
     exit()
 
 # Step 5: Update the Confluence page
@@ -656,7 +547,7 @@ try:
         representation='storage',
         minor_edit=True
     )
-    print(f"✅ Confluence tracking page updated with: {Document_Id}, {NEW_PAGE_ID}")
+    print(f"Confluence tracking page updated with: {Document_Id}, {NEW_PAGE_ID}")
 except Exception as e:
-    print(f"❌ Failed to update tracking page: {e}")
+    print(f"Failed to update tracking page: {e}")
 
