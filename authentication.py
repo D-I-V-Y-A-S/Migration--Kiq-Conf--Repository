@@ -5,6 +5,7 @@ from hashlib import sha256 as SHA256
 from Crypto.Hash import HMAC
 from dotenv import load_dotenv
 from Crypto.Hash import SHA256, HMAC
+
 # Load variables from .env into the environment
 load_dotenv()
 
@@ -83,21 +84,3 @@ try:
 except Exception as e:
     print("[:x:] Critical error in authentication flow:", str(e))
 
-
-#Source pages fetching 
-response=requests.get(source_url,headers=headers_1)
-if response.status_code == 200:
-    try:
-        data = response.json()
-        fields = data.get("fields", []) 
-        Document_Id = data['detail']['id']
-        Created_by=data['detail']['createdByPerson']
-        print(Document_Id,Created_by)
-        confluence_email=getuserEmail(Created_by)
-        print("Mapped email:", confluence_email)
-        title = get_document_title(fields)
-        print("Document Title:", title)
-    except ValueError:
-        print("Failed to parse JSON.")
-else:
-    print(f"Request failed with status code: {response.status_code}")
