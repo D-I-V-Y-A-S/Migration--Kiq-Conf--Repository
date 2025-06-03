@@ -5,3 +5,6 @@ pip install python-dotenv
 pip install requests
 pip install pandas openpyxl
 pip install pycryptodome
+
+
+pip install chardet beautifulsoup4 atlassian-python-api python-dotenv requests pandas openpyxl pycryptodome
